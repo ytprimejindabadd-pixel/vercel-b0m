@@ -1,12 +1,5 @@
 {
-  "version": 2,
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/api/send.py"
-    }
-  ],
-  "env": {
-    "PYTHON_VERSION": "3.9"
-  }
+  "rewrites": [
+    {"source": "/(.*)", "destination": "/api/index.py"}
+  ]
 }
