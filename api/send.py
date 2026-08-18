@@ -1,26 +1,31 @@
-from flask import Flask, request, jsonify, Response
+from flask import Flask, request, jsonify
 import requests
-import time
-import json
+import os
+import re
 
 app = Flask(__name__)
 
-# Your existing API endpoint
+# Your SMS API endpoint
 SMS_API = "https://way-bombm.onrender.com/send"
 
 @app.route('/send', methods=['GET'])
 def send_sms():
+    # Get parameters
+    phone = request.args.get('phone', '')
+    count = request.args.get('count', '1')
+    
+    # Validate phone number
+    if not phone or not re.match(r'^\d{10}$', phone):
+        return jsonify({
+            "failed": 1,
+            "phone": phone if phone else "invalid",
+            "success": False,
+            "successful": 0,
+            "total_sent": 0,
+            "error": "Invalid phone number (10 digits required)"
+        }), 400
+    
     try:
-        # Get parameters from URL
-        phone = request.args.get('phone', '')
-        count = request.args.get('count', '1')
-        
-        if not phone:
-            return jsonify({
-                "success": False,
-                "error": "Phone number required"
-            }), 400
-        
         # Call your existing API
         response = requests.get(
             f"{SMS_API}?phone={phone}&count={count}",
@@ -29,7 +34,6 @@ def send_sms():
         
         if response.status_code == 200:
             data = response.json()
-            
             # Return only required fields
             return jsonify({
                 "failed": data.get("failed", 0),
@@ -44,8 +48,9 @@ def send_sms():
                 "phone": phone,
                 "success": False,
                 "successful": 0,
-                "total_sent": 0
-            }), response.status_code
+                "total_sent": 0,
+                "error": f"API returned {response.status_code}"
+            })
             
     except requests.exceptions.Timeout:
         return jsonify({
@@ -67,18 +72,25 @@ def send_sms():
             "error": str(e)
         }), 500
 
-# Root endpoint
-@app.route('/')
-def home():
+# Health check endpoint
+@app.route('/health', methods=['GET'])
+def health():
     return jsonify({
-        "service": "SMS API",
-        "endpoint": "/send?phone=1234567890&count=10"
+        "status": "ok",
+        "service": "SMS Gateway API"
     })
 
-# Vercel serverless handler
-def handler(request):
-    return app(request)
+# Root endpoint
+@app.route('/', methods=['GET'])
+def home():
+    return jsonify({
+        "service": "SMS API Gateway",
+        "endpoint": "/send?phone=1234567890&count=10",
+        "example": "https://my-web.vercel.app/send?phone=9876543210&count=5",
+        "health": "/health"
+    })
 
-# For local development
+# For local testing
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
